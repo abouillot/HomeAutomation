@@ -32,7 +32,15 @@ Ethernet Pinout:
 
 //general --------------------------------
 #define SERIAL_BAUD   115200
-
+#if 0
+#define DEBUG1(expression)  Serial.print(expression)
+#define DEBUG2(expression, arg)  Serial.print(expression, arg)
+#define DEBUGLN1(expression)  Serial.println(expression)
+#else
+#define DEBUG1(expression)
+#define DEBUG2(expression, arg)
+#define DEBUGLN1(expression)
+#endif
 //RFM69  ----------------------------------
 #include <RFM69.h>
 #include <SPI.h>
@@ -103,23 +111,23 @@ void setup()
 
   //wait for IP address
   while (Ethernet.begin(mac) != 1) {
-    Serial.println(F("Error getting IP address via DHCP, trying again..."));
+    DEBUGLN1("Error getting IP address via DHCP, trying again...");
     delay(DHCP_RETRY);
   }
 
-  Serial.println(F("ethernet OK"));
+  DEBUGLN1("ethernet OK");
   // print your local IP address:
-  Serial.print(F("My IP address: "));
+  DEBUGLN1("My IP address: ");
   for (byte thisByte = 0; thisByte < 4; thisByte++) {
     // print the value of each byte of the IP address:
-    Serial.print(Ethernet.localIP()[thisByte], DEC);
-    Serial.print(F(".")); 
+    DEBUG2(Ethernet.localIP()[thisByte], DEC);
+    DEBUG1("."); 
   }
-  Serial.println();
+  DEBUGLN1();
 
   // Mosquitto ------------------------------
   while (client.connect(MQTT_CLIENT_ID) != 1) {
-    Serial.println(F("Error connecting to MQTT"));
+    DEBUGLN1("Error connecting to MQTT");
     delay(MQTT_RETRY);
   }
 
@@ -132,9 +140,9 @@ void setup()
   radio.promiscuous(promiscuousMode);
   char buff[50];
   sprintf(buff, "\nListening at %d Mhz...", FREQUENCY==RF69_433MHZ ? 433 : FREQUENCY==RF69_868MHZ ? 868 : 915);
-  Serial.println(buff);
+  DEBUGLN1(buff);
 
-  Serial.println(F("setup complete"));
+  DEBUGLN1("setup complete");
 }  // end of setup
 
 byte ackCount=0;
@@ -155,34 +163,35 @@ void loop() {
   }
 
   if (radio.receiveDone()) {
-    Serial.print('[');
-    Serial.print(radio.SENDERID, DEC);
-    Serial.print("] ");
+    DEBUG1('[');
+    DEBUG2(radio.SENDERID, DEC);
+    DEBUG1("] ");
     if (promiscuousMode) {
-      Serial.print("to [");
-      Serial.print(radio.TARGETID, DEC);
-      Serial.print("] ");
+      DEBUG1("to [");
+      DEBUG2(radio.TARGETID, DEC);
+      DEBUG1("] ");
     }
+    DEBUGLN1();
 
     if (radio.DATALEN != sizeof(Payload))
       Serial.println(F("Invalid payload received, not matching Payload struct!"));
     else {
       theData = *(Payload*)radio.DATA; //assume radio.DATA actually contains our struct and not something else
 
-      //      Serial.print(theData.sensorID);
-      //      Serial.print(", ");
-      Serial.print(theData.var1_usl);
-      //      Serial.print(", ");
-      //      Serial.print(theData.var2_float);
-      //      Serial.print(", ");
-      //Serial.print(" var2(temperature)=");
-      //Serial.print(", ");
-      //Serial.print(theData.var3_float);
+      DEBUG1(theData.sensorID);
+      DEBUG1(", ");
+      DEBUG1(theData.var1_usl);
+      DEBUG1(", ");
+      DEBUG1(theData.var2_float);
+      DEBUG1(", ");
+      DEBUG1(" var2(temperature)=");
+      DEBUG1(", ");
+      DEBUG1(theData.var3_float);
 
       //printFloat(theData.var2_float, 5); Serial.print(", "); printFloat(theData.var3_float, 5);
 
-      Serial.print(F(", RSSI= "));
-      Serial.println(radio.RSSI);
+      DEBUG1(", RSSI= ");
+      DEBUGLN1(radio.RSSI);
 
       //save it for i2c:
       SensorNode.nodeID = theData.nodeID;
@@ -193,12 +202,12 @@ void loop() {
       SensorNode.var4_int = radio.RSSI;
 
       /*
-      Serial.print ("Received Device ID = ");
-       Serial.println (SensorNode.sensorID);  
-       Serial.print ("    Time = ");
-       Serial.println (SensorNode.var1_usl);
-       Serial.print ("    var2_float ");
-       Serial.println (SensorNode.var2_float);
+      DEBUG1("Received Device ID = ");
+      DEBUGLN1(SensorNode.sensorID);  
+       DEBUG1 ("    Time = ");
+       DEBUGLN1 (SensorNode.var1_usl);
+       DEBUG1 ("    var2_float ");
+       DEBUGLN1 (SensorNode.var2_float);
        */
       sendMQTT = 1;
     }
@@ -226,13 +235,13 @@ void loop() {
   } //end if radio.receive
 
   if (sendMQTT == 1) {
-    Serial.println(F("starting MQTT send"));
+    DEBUGLN1("starting MQTT send");
 
     if (!client.connected()) {
       while (client.connect(MQTT_CLIENT_ID) != 1)
       {
         digitalWrite(led, LOW);
-        Serial.println("Error connecting to MQTT");
+        DEBUGLN1("Error connecting to MQTT");
         delay(500);
         digitalWrite(led, HIGH);
       }
@@ -266,7 +275,7 @@ void loop() {
     MQTTSendInt(&client, SensorNode.nodeID, SensorNode.sensorID, 4, SensorNode.var4_int);
 
     sendMQTT = 0;
-    Serial.println(F("finished MQTT send"));
+    DEBUGLN1("finished MQTT send");
     digitalWrite(led, LOW);
   }//end if sendMQTT
 }//end loop
@@ -279,6 +288,7 @@ void MQTTSendInt(PubSubClient* _client, int node, int sensor, int var, int val) 
     sprintf(buff_message, "%04d%", val);
     _client->publish(buff_topic, buff_message);
 }
+
 void MQTTSendLong(PubSubClient* _client, int node, int sensor, int var, long val) {
     char buff_topic[6];
     char buff_message[7];
@@ -291,7 +301,7 @@ void MQTTSendLong(PubSubClient* _client, int node, int sensor, int var, long val
 // Handing of Mosquitto messages
 void callback(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
-  Serial.println(F("Mosquitto Callback"));
+  DEBUGLN1(F("Mosquitto Callback"));
 }
 
 
