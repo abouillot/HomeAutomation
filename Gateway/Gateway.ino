@@ -76,6 +76,7 @@ PubSubClient client(server, 1883, callback, ethClient);
 int sendMQTT = 0;
 
 void MQTTSendInt(PubSubClient* _client, int node, int sensor, int var, int val);
+void MQTTSendULong(PubSubClient* _client, int node, int sensor, int var, unsigned long val);
 void MQTTSendFloat(PubSubClient* _client, int node, int sensor, int var, float val);
 
 //use LED for indicating MQTT connection status.
@@ -150,13 +151,13 @@ long watchdogInterval = 2000;
 long watchdog = 0;
 
 void loop() {
-  
+
   // calling client.loop too often block the system at some point quite early (~up to 5 loop)
   // Here is a temporized call to it on a regular interval
   // This need to be as fast as the fastest sensor received
   if (millis() > watchdog) {
-//    Serial.print("loop "); 
-//    Serial.println(millis());
+    //    Serial.print("loop "); 
+    //    Serial.println(millis());
     watchdog += watchdogInterval;
     //client.loop needs to run every iteration.  Previous version did not.  Big opps.
     client.loop();
@@ -178,21 +179,6 @@ void loop() {
     else {
       theData = *(Payload*)radio.DATA; //assume radio.DATA actually contains our struct and not something else
 
-      DEBUG1(theData.sensorID);
-      DEBUG1(", ");
-      DEBUG1(theData.var1_usl);
-      DEBUG1(", ");
-      DEBUG1(theData.var2_float);
-      DEBUG1(", ");
-      DEBUG1(" var2(temperature)=");
-      DEBUG1(", ");
-      DEBUG1(theData.var3_float);
-
-      //printFloat(theData.var2_float, 5); Serial.print(", "); printFloat(theData.var3_float, 5);
-
-      DEBUG1(", RSSI= ");
-      DEBUGLN1(radio.RSSI);
-
       //save it for i2c:
       SensorNode.nodeID = theData.nodeID;
       SensorNode.sensorID = theData.sensorID;
@@ -201,14 +187,17 @@ void loop() {
       SensorNode.var3_float = theData.var3_float;
       SensorNode.var4_int = radio.RSSI;
 
-      /*
       DEBUG1("Received Device ID = ");
       DEBUGLN1(SensorNode.sensorID);  
-       DEBUG1 ("    Time = ");
-       DEBUGLN1 (SensorNode.var1_usl);
-       DEBUG1 ("    var2_float ");
-       DEBUGLN1 (SensorNode.var2_float);
-       */
+      DEBUG1 ("    Time = ");
+      DEBUGLN1 (SensorNode.var1_usl);
+      DEBUG1 ("    var2_float ");
+      DEBUGLN1 (SensorNode.var2_float);
+      DEBUG1 ("    var3_float ");
+      DEBUGLN1 (SensorNode.var3_float);
+      DEBUG1 ("    RSSI ");
+      DEBUGLN1 (SensorNode.var4_int);
+
       sendMQTT = 1;
     }
 
@@ -249,7 +238,7 @@ void loop() {
     } 
 
     digitalWrite(led, HIGH);
-    
+
     int varnum;
     char buff_topic[6];
     char buff_message[12];      
@@ -264,6 +253,9 @@ void loop() {
      dtostrf (SensorNode.var1_usl, 10, 1, buff_message);
      client.publish(buff_topic, buff_message);
      */
+
+    //send var1_usl
+    MQTTSendULong(&client, SensorNode.nodeID, SensorNode.sensorID, 1, SensorNode.var1_usl);
 
     //send var2_float
     MQTTSendFloat(&client, SensorNode.nodeID, SensorNode.sensorID, 2, SensorNode.var2_float);
@@ -281,21 +273,30 @@ void loop() {
 }//end loop
 
 void MQTTSendInt(PubSubClient* _client, int node, int sensor, int var, int val) {
-    char buff_topic[6];
-    char buff_message[7];
+  char buff_topic[6];
+  char buff_message[7];
 
-    sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
-    sprintf(buff_message, "%04d%", val);
-    _client->publish(buff_topic, buff_message);
+  sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+  sprintf(buff_message, "%04d%", val);
+  _client->publish(buff_topic, buff_message);
+}
+
+void MQTTSendULong(PubSubClient* _client, int node, int sensor, int var, unsigned long val) {
+  char buff_topic[6];
+  char buff_message[12];
+
+  sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+  sprintf(buff_message, "%u", val);
+  _client->publish(buff_topic, buff_message);
 }
 
 void MQTTSendFloat(PubSubClient* _client, int node, int sensor, int var, float val) {
-    char buff_topic[6];
-    char buff_message[12];
+  char buff_topic[6];
+  char buff_message[12];
 
-    sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
-    dtostrf (val, 2, 1, buff_message);
-    _client->publish(buff_topic, buff_message);
+  sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+  dtostrf (val, 2, 1, buff_message);
+  _client->publish(buff_topic, buff_message);
 }
 
 // Handing of Mosquitto messages
@@ -303,6 +304,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   // handle message arrived
   DEBUGLN1(F("Mosquitto Callback"));
 }
+
 
 
 
