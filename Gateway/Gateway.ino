@@ -76,7 +76,7 @@ PubSubClient client(server, 1883, callback, ethClient);
 int sendMQTT = 0;
 
 void MQTTSendInt(PubSubClient* _client, int node, int sensor, int var, int val);
-void MQTTSendLong(PubSubClient* _client, int node, int sensor, int var, long val);
+void MQTTSendFloat(PubSubClient* _client, int node, int sensor, int var, float val);
 
 //use LED for indicating MQTT connection status.
 int led = 13;
@@ -266,10 +266,10 @@ void loop() {
      */
 
     //send var2_float
-    MQTTSendLong(&client, SensorNode.nodeID, SensorNode.sensorID, 2, SensorNode.var2_float);
+    MQTTSendFloat(&client, SensorNode.nodeID, SensorNode.sensorID, 2, SensorNode.var2_float);
 
     //send var3_float
-    MQTTSendInt(&client, SensorNode.nodeID, SensorNode.sensorID, 3, SensorNode.var3_float);
+    MQTTSendFloat(&client, SensorNode.nodeID, SensorNode.sensorID, 3, SensorNode.var3_float);
 
     //send var4_int, RSSI
     MQTTSendInt(&client, SensorNode.nodeID, SensorNode.sensorID, 4, SensorNode.var4_int);
@@ -289,9 +289,9 @@ void MQTTSendInt(PubSubClient* _client, int node, int sensor, int var, int val) 
     _client->publish(buff_topic, buff_message);
 }
 
-void MQTTSendLong(PubSubClient* _client, int node, int sensor, int var, long val) {
+void MQTTSendFloat(PubSubClient* _client, int node, int sensor, int var, float val) {
     char buff_topic[6];
-    char buff_message[7];
+    char buff_message[12];
 
     sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
     dtostrf (val, 2, 1, buff_message);
