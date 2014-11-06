@@ -3,6 +3,7 @@
 // **********************************************************************************
 // Copyright Felix Rusu (2014), felix@lowpowerlab.com
 // http://lowpowerlab.com/
+// Raspberry Pi port by Alexandre Bouillot (2014) @abouillot on twitter
 // **********************************************************************************
 // License
 // **********************************************************************************
@@ -253,18 +254,15 @@ void RFM69::sendACK(const void* buffer, byte bufferSize) {
 
 void RFM69::sendFrame(byte toAddress, const void* buffer, byte bufferSize, bool requestACK, bool sendACK)
 {
-  unsigned char thedata[63];
-  char i;
-
-  //printf("Prepared to send a new frame\n\r");
-
-
   setMode(RF69_MODE_STANDBY); //turn off receiver to prevent reception while filling fifo
 	while ((readReg(REG_IRQFLAGS1) & RF_IRQFLAGS1_MODEREADY) == 0x00); // Wait for ModeReady
   writeReg(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_00); // DIO0 is "Packet Sent"
   if (bufferSize > RF69_MAX_DATA_LEN) bufferSize = RF69_MAX_DATA_LEN;
 
 #ifdef RASPBERRY
+  unsigned char thedata[63];
+  char i;
+
   for(i = 0; i < 63; i++) thedata[i] = 0;
 
   thedata[0] = REG_FIFO | 0x80;
@@ -587,8 +585,12 @@ void RFM69::readAllRegs()
     regVal = SPI.transfer(0);
     unselect();
 
-    fprintf(stderr, "%0x - %x - %d\r\n", regAddr, regVal, regVal);
-    }
+    Serial.print(regAddr, HEX);
+    Serial.print(" - ");
+    Serial.print(regVal,HEX);
+    Serial.print(" - ");
+    Serial.println(regVal,BIN);
+	}
   unselect();
 #endif
 }
@@ -597,8 +599,12 @@ byte RFM69::readTemperature(byte calFactor)  //returns centigrade
 {
   setMode(RF69_MODE_STANDBY);
   writeReg(REG_TEMP1, RF_TEMP1_MEAS_START);
-  while ((readReg(REG_TEMP1) & RF_TEMP1_MEAS_RUNNING)) 
+  while ((readReg(REG_TEMP1) & RF_TEMP1_MEAS_RUNNING))
+#ifdef RASPBERRY  
     fprintf(stderr, "*");
+#else
+	Serial.print("*");
+#endif
   return ~readReg(REG_TEMP2) + COURSE_TEMP_COEF + calFactor; //'complement'corrects the slope, rising temp = rising val
 }												   	  // COURSE_TEMP_COEF puts reading in the ballpark, user can add additional correction
 

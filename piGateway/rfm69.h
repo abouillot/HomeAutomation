@@ -31,20 +31,7 @@
 // **********************************************************************************
 #ifndef RFM69_h
 #define RFM69_h
-#ifdef ARDUINO
-#include <Arduino.h>            //assumes Arduino IDE v1.0 or greater
-
-#define RF69_SPI_CS               SS // SS is the SPI slave select pin, for instance D10 on atmega328
-
-// INT0 on AVRs should be connected to RFM69's DIO0 (ex on Atmega328 it's D2, on Atmega644/1284 it's D2)
-#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega88) || defined(__AVR_ATmega8__) || defined(__AVR_ATmega88__) || defined(__AVR_ATmega32U4__)
-  #define RF69_IRQ_PIN          2
-  #define RF69_IRQ_NUM          0
-#elif defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega2560__)
-  #define RF69_IRQ_PIN          2
-  #define RF69_IRQ_NUM          2
-#endif
-#else // RASPBERRY
+#ifdef RASPBERRY
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned long uint32_t;
@@ -60,7 +47,19 @@ typedef uint8_t byte;
  //#define SPI_SPEED 1000000
 #define SPI_SPEED 2000000
 #define SPI_DEVICE 0
+#else
+#include <Arduino.h>            //assumes Arduino IDE v1.0 or greater
 
+#define RF69_SPI_CS               SS // SS is the SPI slave select pin, for instance D10 on atmega328
+
+// INT0 on AVRs should be connected to RFM69's DIO0 (ex on Atmega328 it's D2, on Atmega644/1284 it's D2)
+#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega88) || defined(__AVR_ATmega8__) || defined(__AVR_ATmega88__) || defined(__AVR_ATmega32U4__)
+  #define RF69_IRQ_PIN          2
+  #define RF69_IRQ_NUM          0
+#elif defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega2560__)
+  #define RF69_IRQ_PIN          2
+  #define RF69_IRQ_NUM          2
+#endif
 #endif
 
 #define RF69_MAX_DATA_LEN         61 // to take advantage of the built in AES/CRC we want to limit the frame size to the internal FIFO size (66 bytes - 3 bytes overhead)
@@ -106,11 +105,7 @@ class RFM69 {
     }
 
     bool initialize(byte freqBand, byte ID, byte networkID=1);
-#ifdef ARDUINO
-#else
     void setAddress(byte addr);
-	void receive(void);
-#endif	
     bool canSend();
     void send(byte toAddress, const void* buffer, byte bufferSize, bool requestACK=false);
     bool sendWithRetry(byte toAddress, const void* buffer, byte bufferSize, byte retries=2, byte retryWaitTime=40); //40ms roundtrip req for  61byte packets
