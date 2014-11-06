@@ -52,7 +52,7 @@ g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY -DDEBUG
 You can omit the -DDEBUG part, if you don't want the debug output to be produced
 
 Launch the gateway
-
+```
 sudo ./Gateway
-
+```
 sudo is required as some of the WiringPi library need it
