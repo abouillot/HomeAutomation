@@ -27,22 +27,34 @@ SS = 8
 #define DEBUG1(expression)  fprintf(stderr, expression)
 #define DEBUG2(expression, arg)  fprintf(stderr, expression, arg)
 #define DEBUGLN1(expression)  
-//{fprintf(stderr, expression); fprintf(stderr, "\r\n");}
+#ifdef DAEMON
+#define LOG(...) do { syslog(LOG_INFO, __VA_ARGS__); } while (0)
+#define LOG_E(...) do { syslog(LOG_ERR, __VA_ARGS__); } while (0)
+#else
 #define LOG(...) do { printf(__VA_ARGS__); } while (0)
+#define LOG_E(...) do { printf(__VA_ARGS__); } while (0)
+#endif //DAEMON
 #else
 #define DEBUG1(expression)
 #define DEBUG2(expression, arg)
 #define DEBUGLN1(expression)
 #define LOG(...)
+#define LOG_E(...)
 #endif
 
 //RFM69  ----------------------------------
 #include "rfm69.h"
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <unistd.h>
+#include <syslog.h>
+#include <time.h>
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
@@ -113,6 +125,47 @@ static void uso(void) {
 
 int main(int argc, char* argv[]) {
 	if (argc != 1) uso();
+
+#ifdef DAEMON
+	//Adapted from http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html
+	pid_t pid, sid;
+
+	openlog("Gatewayd", 0, LOG_USER);
+
+	pid = fork();
+	if (pid < 0) {
+		LOG_E("fork failed");
+		exit(EXIT_FAILURE);
+	}
+	/* If we got a good PID, then
+		 we can exit the parent process. */
+	if (pid > 0) {
+		LOG("Child spawned, pid %d\n", pid);
+		exit(EXIT_SUCCESS);
+	}
+
+	/* Change the file mode mask */
+	umask(0);
+
+	/* Create a new SID for the child process */
+	sid = setsid();
+	if (sid < 0) {
+		LOG_E("setsid failed");
+		exit(EXIT_FAILURE);
+	}
+        
+	/* Change the current working directory */
+	if ((chdir("/")) < 0) {
+	  LOG_E("chdir failed");
+	  exit(EXIT_FAILURE);
+	}
+        
+	/* Close out the standard file descriptors */
+	close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+	close(STDERR_FILENO);
+#endif //DAEMON
+
 	int i;
 	long packetCount = 0;
 
