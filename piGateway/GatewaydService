@@ -9,7 +9,7 @@
 # Should-Stop:
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# X-Start-Before:    
+# X-Start-Before:
 # X-Start-After:     openhab
 # Short-Description: RFM Gateway daemon
 # Description:       Poll the SPI for data from an RFM69 wireless transceiver
@@ -22,23 +22,23 @@ NAME=Gatewayd
 
 test -x $DAEMON || exit 0
 
-case "$1" in 
+case "$1" in
     start)
         echo -n "Starting RFM Gateway: "
         start-stop-daemon --start --exec $DAEMON
-	echo $NAME
+        echo $NAME
         ;;
     stop)
         echo -n "Stopping RFM Gateway daemon: "
-	start-stop-daemon --stop --oknodo --retry 30 --exec $DAEMON
-	echo $NAME
+        start-stop-daemon --stop --oknodo --retry 30 --exec $DAEMON
+        echo $NAME
         ;;
     restart)
-	echo -n "Restarting RFM Gateway daemon: "
-	start-stop-daemon --stop --oknodo --retry 30 --exec $DAEMON
-	start-stop-daemon --start --exec $DAEMON
-	echo $NAME
-	;;
+        echo -n "Restarting RFM Gateway daemon: "
+        start-stop-daemon --stop --oknodo --retry 30 --exec $DAEMON
+        start-stop-daemon --start --exec $DAEMON
+        echo $NAME
+        ;;
     *)
         echo "Usage: $0 start|stop|restart"
         exit 1
