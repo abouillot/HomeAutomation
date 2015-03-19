@@ -31,21 +31,30 @@ A script is provided to easily build it
 cd wiringPi
 ./build
 ```
+Move back to your home directory
+```
+cd ..
+```
 
-Install Mosquitto and the development libraries
+Install Mosquitto and the development libraries - based on http://mosquitto.org/2013/01/mosquitto-debian-repository
+/!\ The repository doesn't seem able to deliver the proper dev package.
+Trying to figure a way to have this back to work
 ```
 wget http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key
 sudo apt-key add mosquitto-repo.gpg.key
 cd /etc/apt/sources.list.d/
-sudo wget http://repo.mosquitto.org/debian/mosquitto-stable.list
-apt-get update
+sudo wget http://repo.mosquitto.org/debian/mosquitto-wheezy.list
 sudo apt-get update
 sudo apt-get install mosquitto mosquitto-clients libmosquitto-dev
 ```
 
+Grab the gateway
+```
+git clone git://github.com/abouillot/HomeAutomation
+```
 Compile the gateway
 ```
-cd ~/piGateway
+cd HomeAutomation/piGateway
 g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY -DDEBUG
 ```
 
