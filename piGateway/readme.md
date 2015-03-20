@@ -31,21 +31,35 @@ A script is provided to easily build it
 cd wiringPi
 ./build
 ```
-Move back to your home directory
-```
-cd ..
-```
 
 Install Mosquitto and the development libraries - based on http://mosquitto.org/2013/01/mosquitto-debian-repository
-/!\ The repository doesn't seem able to deliver the proper dev package.
-Trying to figure a way to have this back to work
+
+/!\ The repository doesn't seem able to deliver the proper libmosquitto-dev package, so we will compile it at a later stage.
 ```
 wget http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key
 sudo apt-key add mosquitto-repo.gpg.key
 cd /etc/apt/sources.list.d/
 sudo wget http://repo.mosquitto.org/debian/mosquitto-wheezy.list
 sudo apt-get update
-sudo apt-get install mosquitto mosquitto-clients libmosquitto-dev
+sudo apt-get install mosquitto mosquitto-clients
+```
+
+Then, prepare the libmosquitto-dev replacement. Assume we will work from our home directory
+```
+cd ~
+wget http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key
+sudo apt-key add mosquitto-repo.gpg.key
+cd /etc/apt/sources.list.d/
+sudo wget http://repo.mosquitto.org/debian/mosquitto-wheezy.list~
+cd ~
+sudo apt-get update
+sudo apt-get install mosquitto mosquitto-clients
+sudo apt-get install libssl-dev libwrap0-dev libc-ares-dev uuid-dev xsltproc docbook-xsl
+wget http://mosquitto.org/files/source/mosquitto-1.3.5.tar.gz
+tar zxvf mosquitto-1.3.5.tar.gz
+cd mosquitto-1.3.5/lib/
+make all
+sudo make install
 ```
 
 Grab the gateway
