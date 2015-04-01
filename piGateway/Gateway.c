@@ -23,7 +23,7 @@ SS = 8
 
 //general --------------------------------
 #define SERIAL_BAUD   115200
-#if 1
+#ifdef DEBUG
 #define DEBUG1(expression)  fprintf(stderr, expression)
 #define DEBUG2(expression, arg)  fprintf(stderr, expression, arg)
 #define DEBUGLN1(expression)  
@@ -52,7 +52,6 @@ SS = 8
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <unistd.h>
 #include <syslog.h>
 #include <time.h>
 #include <string.h>
@@ -71,7 +70,7 @@ SS = 8
 
 RFM69 *rfm69;
 bool promiscuousMode = false; //set to 'true' to sniff all packets on the same network
-byte ackCount=0;
+uint8_t ackCount=0;
 
 // Mosquitto---------------
 #include <mosquitto.h>
@@ -194,7 +193,7 @@ int main(int argc, char* argv[]) {
 static int run_loop(struct mosquitto *m) {
 	int res;
 	for (;;) {
-		res = mosquitto_loop(m, 1000, 1);
+		res = mosquitto_loop(m, 10, 1);
 
 		if (rfm69->receiveDone()) {
 			LOG("[%d] ",rfm69->SENDERID);
@@ -232,20 +231,24 @@ static int run_loop(struct mosquitto *m) {
 			}
 
 		if (rfm69->ACK_REQUESTED) {
-			byte theNodeID = rfm69->SENDERID;
+			uint8_t theNodeID = rfm69->SENDERID;
+			LOG("ACK requested\n");
 			rfm69->sendACK();
+			LOG("ACK sent\n");
 
 			// When a node requests an ACK, respond to the ACK
 			// and also send a packet requesting an ACK (every 3rd one only)
 			// This way both TX/RX NODE functions are tested on 1 end at the GATEWAY
 			if (ackCount++%3==0) {
-				//Serial.print(" Pinging node ");
-				//Serial.print(theNodeID);
-				//Serial.print(" - ACK...");
+				LOG(" Pinging node %d - ACK ", theNodeID);
 				//delay(3); //need this when sending right after reception .. ?
-				//if (radio.sendWithRetry(theNodeID, "ACK TEST", 8, 0))  // 0 = only 1 attempt, no retries
-				//  Serial.print("ok!");
-				//else Serial.print("nothing");
+				usleep(3000);
+				if (rfm69->sendWithRetry(theNodeID, "ACK TEST", 8, 2, 100)) { // 0 = only 1 attempt, no retries
+				  LOG("ok!\n");
+				}
+				else {
+					LOG("nothing\n");
+				}
 			}
 		}//end if radio.ACK_REQESTED
 	} //end if radio.receive
@@ -284,6 +287,7 @@ static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int va
 
 	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
 	sprintf(buff_message, "%04d%", val);
+	LOG("%s %s", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
 }
 
@@ -293,8 +297,9 @@ static void MQTTSendULong(struct mosquitto* _client, int node, int sensor, int v
 
 	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
 	sprintf(buff_message, "%u", val);
+	LOG("%s %s", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
-}
+	}
 
 static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int var, float val) {
 	char buff_topic[6];
@@ -302,12 +307,13 @@ static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int v
 
 	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
 	snprintf(buff_message, 12, "%f", val);
-
+	LOG("%s %s", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, buff_topic, strlen(buff_message), buff_message, 0, false);
-}
+
+	}
 
 // Handing of Mosquitto messages
-void callback(char* topic, byte* payload, unsigned int length) {
+void callback(char* topic, uint8_t* payload, unsigned int length) {
 	// handle message arrived
 	LOG("Mosquitto Callback\n");
 }
@@ -321,6 +327,7 @@ static void die(const char *msg) {
 /* Connect to the network. */
 static bool connect(struct mosquitto *m) {
 	int res = mosquitto_connect(m, BROKER_HOSTNAME, BROKER_PORT, KEEPALIVE_SECONDS);
+	LOG("Connect return %d", res);
 	return res == MOSQ_ERR_SUCCESS;
 }
 
