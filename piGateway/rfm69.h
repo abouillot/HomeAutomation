@@ -106,6 +106,7 @@ class RFM69 {
     }
 
     bool initialize(uint8_t freqBand, uint8_t ID, uint8_t networkID=1);
+    bool restart(uint8_t freqBand, uint8_t ID, uint8_t networkID=1);
     void setAddress(uint8_t addr);
     void setNetwork(uint8_t networkID);
     bool canSend();
