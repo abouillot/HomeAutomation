@@ -406,13 +406,14 @@ const struct mosquitto_message *msg) {
 	LOG("-- got message @ %s: (%d, QoS %d, %s) '%s'\n",
 		msg->topic, msg->payloadlen, msg->qos, msg->retain ? "R" : "!r",
 		msg->payload);
-	if (strlen((const char *)msg) < strlen(MQTT_ROOT) + 2 + 3 + 1) {return; }	// message is smaller than "RFM/xxx/x" so likey invalid
+		
+	if (strlen((const char *)msg->topic) < strlen(MQTT_ROOT) + 2 + 3 + 1) {return; }	// message is smaller than "RFM/xxx/x" so likey invalid
 
 	Payload data;
 	uint8_t network;
 
 	sscanf(msg->topic, "RFM/%d/%d", &network, &data.nodeID);
-	if (strncmp(msg->topic, MQTT_ROOT, strlen(MQTT_ROOT)) == 0) {
+	if (strncmp(msg->topic, MQTT_ROOT, strlen(MQTT_ROOT)) == 0 && network == theConfig.networkId) {
 		
 		// extract the target network and the target node from the topic
 		sscanf(msg->topic, "RFM/%d/%d", &network, &data.nodeID);
