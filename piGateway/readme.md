@@ -18,7 +18,7 @@ DID0  22
 The layout of the connection header is described at http://www.megaleecher.net/Raspberry_Pi_GPIO_Pinout_Helper
 ![Alt Text](http://www.megaleecher.net/sites/default/files/images/raspberry-pi-rev2-gpio-pinout.jpg "Raspberry Pinout")
 
-Install Git core, if not aleready done
+Install Git core, if not already done
 ```
 sudo apt-get install git-core
 ```
@@ -31,10 +31,12 @@ A script is provided to easily build it
 cd wiringPi
 ./build
 ```
+:warning: Ensure you properly setup the SPI interface, using `raspi-config`
+
 
 Install Mosquitto and the development libraries - based on http://mosquitto.org/2013/01/mosquitto-debian-repository
 
-/!\ The repository doesn't seem able to deliver the proper libmosquitto-dev package, so we will compile it at a later stage.
+:warning: The repository doesn't seem able to deliver the proper libmosquitto-dev package, so we will compile it at a later stage.
 ```
 wget http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key
 sudo apt-key add mosquitto-repo.gpg.key
@@ -79,3 +81,23 @@ Launch the gateway
 sudo ./Gateway
 ```
 sudo is required as some of the WiringPi library need it
+
+
+### Daemon
+The Gateway can also be run as a daemon
+
+To build it you can use 
+```
+make Gatewayd
+```
+
+To intsall the Gateway as a service and run it
+```
+sudo make install
+```
+This will build it as well, if not already done. The service will be lauch at every startup of the system.
+
+To remove the service you can use the command
+```
+sudo make uninstall
+```
