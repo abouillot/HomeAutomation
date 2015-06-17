@@ -2,13 +2,13 @@ install : Gatewayd
 	cp Gatewayd /usr/local/bin
 	cp GatewaydService /etc/init.d/Gatewayd
 	chmod +x /etc/init.d/Gatewayd
-	update-rc.d Gatewayd enable
+	update-rc.d Gatewayd defaults
 	service Gatewayd start
 	
 	
-uninstall: Gatewayd
+uninstall:
 	service Gatewayd stop
-	update-rc.d -f Gatewayd disable
+	update-rc.d -f Gatewayd remove
 	rm /etc/init.d/Gatewayd
 	rm /usr/local/bin/Gatewayd
 

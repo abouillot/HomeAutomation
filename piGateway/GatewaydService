@@ -17,22 +17,26 @@
 
 # Adapted from noip2 (http://www.togaware.com/linux/survivor/No_IP_Manual.html)
 
+# Using the lsb functions to perform the operations.
+. /lib/lsb/init-functions
 DAEMON=/usr/local/bin/Gatewayd
 NAME=Gatewayd
+PIDFILE=/var/run/Gatewayd.pid
 
 test -x $DAEMON || exit 0
 
 case "$1" in
     start)
         echo -n "Starting RFM Gateway: "
-        start-stop-daemon --start --exec $DAEMON
+        start-stop-daemon --start --exec $DAEMON --pidfile $PIDFILE --name $NAME
         echo $NAME
         ;;
     stop)
         echo -n "Stopping RFM Gateway daemon: "
-        start-stop-daemon --stop --oknodo --retry 30 --exec $DAEMON
+        start-stop-daemon --stop --oknodo --retry 30 --exec $DAEMON --name $NAME
         echo $NAME
         ;;
+
     restart)
         echo -n "Restarting RFM Gateway daemon: "
         start-stop-daemon --stop --oknodo --retry 30 --exec $DAEMON

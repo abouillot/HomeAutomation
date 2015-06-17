@@ -3,7 +3,7 @@ RFM69 Gateway RFM69 pushing the data to the mosquitto server
 by Alexandre Bouillot
 
 License:  CC-BY-SA, https://creativecommons.org/licenses/by-sa/2.0/
-Date:  2014-04-13
+Date:  2015-06-12
 File: Gateway.c
 
 This sketch receives RFM wireless data and forwards it to Mosquitto relay
@@ -194,7 +194,7 @@ int main(int argc, char* argv[]) {
 	theConfig.keyLength = 16;
 	memcpy(theConfig.key, "xxxxxxxxxxxxxxxx", 16);
 	theConfig.isRFM69HW = true;
-	theConfig.promiscuousMode = false;
+	theConfig.promiscuousMode = true;
 	theConfig.messageWatchdogDelay = 1800000; // 1800 seconds (30 minutes) between two messages 
 
 	rfm69 = new RFM69();
@@ -218,8 +218,6 @@ static int run_loop(struct mosquitto *m) {
 	for (;;) {
 		res = mosquitto_loop(m, 10, 1);
 
-//		printf("%d dB\n",rfm69->readRSSI());
-		
 		// No messages have been received withing MESSAGE_WATCHDOG interval
 		if (millis() > lastMess + theConfig.messageWatchdogDelay) {
 			LOG("=== Message WatchDog ===\n");
@@ -233,24 +231,59 @@ static int run_loop(struct mosquitto *m) {
 		if (rfm69->receiveDone()) {
 			// record last message received time - to compute radio watchdog
 			lastMess = millis();
-			
 			theStats.messageReceived++;
+			
+			// store the received data localy, so they can be overwited
+			// This will allow to send ACK immediately after
+			uint8_t data[RF69_MAX_DATA_LEN]; // recv/xmit buf, including header & crc bytes
+			uint8_t dataLength = rfm69->DATALEN;
+			memcpy(data, (void *)rfm69->DATA, dataLength);
+			uint8_t theNodeID = rfm69->SENDERID;
+			uint8_t targetID = rfm69->TARGETID; // should match _address
+			uint8_t PAYLOADLEN = rfm69->PAYLOADLEN;
+			uint8_t ACK_REQUESTED = rfm69->ACK_REQUESTED;
+			uint8_t ACK_RECEIVED = rfm69->ACK_RECEIVED; // should be polled immediately after sending a packet with ACK request
+			int16_t RSSI = rfm69->RSSI; // most accurate RSSI during reception (closest to the reception)
 
-			LOG("[%d] ",rfm69->SENDERID);
+			if (ACK_REQUESTED  && targetID == theConfig.nodeId) {
+				// When a node requests an ACK, respond to the ACK
+				// but only if the Node ID is correct
+				theStats.ackRequested++;
+				rfm69->sendACK();
+				
+				if (theStats.ackCount++%3==0) {
+					// and also send a packet requesting an ACK (every 3rd one only)
+					// This way both TX/RX NODE functions are tested on 1 end at the GATEWAY
+
+					LOG(" Pinging node %d - ACK ", theNodeID);
+					usleep(3000);  //need this when sending right after reception .. ?
+					theStats.messageSent++;
+					if (rfm69->sendWithRetry(theNodeID, "ACK TEST", 8)) { // 3 retry, over 200ms delay each
+						theStats.ackReceived++;
+						LOG("ok!\n");
+					}
+					else {
+						theStats.ackMissed++;
+						LOG("nothing\n");
+					}
+				}
+			}//end if radio.ACK_REQESTED
+	
+			LOG("[%d] ",theNodeID);
 			if (theConfig.promiscuousMode) {
-				LOG(" to [%d] ", rfm69->TARGETID);
+				LOG(" to [%d] ", targetID);
 			}
 
-			if (rfm69->DATALEN != sizeof(Payload)) {
-				LOG("Invalid payload received, not matching Payload struct! %d - %d\r\n", rfm69->DATALEN, sizeof(Payload));
-				for(int i = 0; i < rfm69->DATALEN; i++) {
-					LOG("%02x.", rfm69->DATA[i]); }
-				LOG("\n");			
+			if (dataLength != sizeof(Payload)) {
+				LOG("Invalid payload received, not matching Payload struct! %d - %d\r\n", dataLength, sizeof(Payload));
+				for(int i = 0; i < dataLength; i++) {
+					LOG("%02x.", data[i]); 
 				}
-			else {
-				theData = *(Payload*)rfm69->DATA; //assume radio.DATA actually contains our struct and not something else
+				LOG("\n");			
+			} else {
+				theData = *(Payload*)data; //assume radio.DATA actually contains our struct and not something else
 
-				//save it for i2c:
+				//save it for mosquitto:
 				sensorNode.nodeID = theData.nodeID;
 				sensorNode.sensorID = theData.sensorID;
 				sensorNode.var1_usl = theData.var1_usl;
@@ -266,31 +299,9 @@ static int run_loop(struct mosquitto *m) {
 					sensorNode.var2_float,
 					sensorNode.var3_float
 				);
-				sendMQTT = 1;
-			}
-
-			if (rfm69->ACK_REQUESTED) {
-				theStats.ackRequested++;
-				uint8_t theNodeID = rfm69->SENDERID;
-				rfm69->sendACK();
-				// When a node requests an ACK, respond to the ACK
-				// and also send a packet requesting an ACK (every 3rd one only)
-				// This way both TX/RX NODE functions are tested on 1 end at the GATEWAY
-				if (theStats.ackCount++%3==0) {
-					LOG(" Pinging node %d - ACK ", theNodeID);
-					//delay(3); //need this when sending right after reception .. ?
-					usleep(3000);
-					theStats.messageSent++;
-					if (rfm69->sendWithRetry(theNodeID, "ACK TEST", 8)) { // 0 = only 1 attempt, no retries
-						theStats.ackReceived++;
-						LOG("ok!\n");
-					}
-					else {
-						theStats.ackMissed++;
-						LOG("nothing\n");
-					}
-				}
-			}//end if radio.ACK_REQESTED
+				if (sensorNode.nodeID == theNodeID)
+					sendMQTT = 1;
+			}  
 		} //end if radio.receive
 
 		if (sendMQTT == 1) {
@@ -321,8 +332,7 @@ static int run_loop(struct mosquitto *m) {
 }
 
 static int initRfm(RFM69 *rfm) {
-	rfm->restart
-(theConfig.frequency,theConfig.nodeId,theConfig.networkId);
+	rfm->restart(theConfig.frequency,theConfig.nodeId,theConfig.networkId);
 	if (theConfig.isRFM69HW)
 		rfm->setHighPower(); //uncomment only for RFM69HW!
 	if (theConfig.keyLength)
