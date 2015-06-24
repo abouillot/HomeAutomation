@@ -289,7 +289,7 @@ static int run_loop(struct mosquitto *m) {
 				sensorNode.var1_usl = theData.var1_usl;
 				sensorNode.var2_float = theData.var2_float;
 				sensorNode.var3_float = theData.var3_float;
-				sensorNode.var4_int = rfm69->RSSI;
+				sensorNode.var4_int = RSSI;
 
 				LOG("Received Node ID = %d Device ID = %d Time = %d  RSSI = %d var2 = %f var3 = %f\n",
 					sensorNode.nodeID,
