@@ -270,10 +270,7 @@ static int run_loop(struct mosquitto *m) {
 				}
 			}//end if radio.ACK_REQESTED
 	
-			LOG("[%d] ",theNodeID);
-			if (theConfig.promiscuousMode) {
-				LOG(" to [%d] ", targetID);
-			}
+			LOG("[%d] to [%d] ", theNodeID, targetID);
 
 			if (dataLength != sizeof(Payload)) {
 				LOG("Invalid payload received, not matching Payload struct! %d - %d\r\n", dataLength, sizeof(Payload));
