@@ -18,23 +18,23 @@ Modifications Needed:
 
 //general --------------------------------
 #define SERIAL_BAUD   115200
-#ifdef DEBUG
-#define DEBUG1(expression)  fprintf(stderr, expression)
-#define DEBUG2(expression, arg)  fprintf(stderr, expression, arg)
-#define DEBUGLN1(expression)  
 #ifdef DAEMON
 #define LOG(...) do { syslog(LOG_INFO, __VA_ARGS__); } while (0)
 #define LOG_E(...) do { syslog(LOG_ERR, __VA_ARGS__); } while (0)
 #else
+#ifdef DEBUG
+#define DEBUG1(expression)  fprintf(stderr, expression)
+#define DEBUG2(expression, arg)  fprintf(stderr, expression, arg)
+#define DEBUGLN1(expression)  
 #define LOG(...) do { printf(__VA_ARGS__); } while (0)
 #define LOG_E(...) do { printf(__VA_ARGS__); } while (0)
-#endif //DAEMON
 #else
 #define DEBUG1(expression)
 #define DEBUG2(expression, arg)
 #define DEBUGLN1(expression)
 #define LOG(...)
 #define LOG_E(...)
+#endif
 #endif
 
 //RFM69  ----------------------------------
@@ -122,6 +122,8 @@ SensorNode sensorNode;
 
 static void die(const char *msg);
 static long millis(void);
+static void hexDump (char *desc, void *addr, int len, int bloc);
+
 static int initRfm(RFM69 *rfm);
 
 static bool set_callbacks(struct mosquitto *m);
@@ -144,7 +146,7 @@ int main(int argc, char* argv[]) {
 	//Adapted from http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html
 	pid_t pid, sid;
 
-	openlog("Gatewayd", 0, LOG_USER);
+	openlog("Gatewayd", LOG_PID, LOG_USER);
 
 	pid = fork();
 	if (pid < 0) {
@@ -255,16 +257,15 @@ static int run_loop(struct mosquitto *m) {
 					// and also send a packet requesting an ACK (every 3rd one only)
 					// This way both TX/RX NODE functions are tested on 1 end at the GATEWAY
 
-					LOG(" Pinging node %d - ACK ", theNodeID);
 					usleep(3000);  //need this when sending right after reception .. ?
 					theStats.messageSent++;
 					if (rfm69->sendWithRetry(theNodeID, "ACK TEST", 8)) { // 3 retry, over 200ms delay each
 						theStats.ackReceived++;
-						LOG("ok!\n");
+						LOG("Pinging node %d - ACK - ok!", theNodeID);
 					}
 					else {
 						theStats.ackMissed++;
-						LOG("nothing\n");
+						LOG("Pinging node %d - ACK - nothing!", theNodeID);
 					}
 				}
 			}//end if radio.ACK_REQESTED
@@ -276,10 +277,7 @@ static int run_loop(struct mosquitto *m) {
 
 			if (dataLength != sizeof(Payload)) {
 				LOG("Invalid payload received, not matching Payload struct! %d - %d\r\n", dataLength, sizeof(Payload));
-				for(int i = 0; i < dataLength; i++) {
-					LOG("%02x.", data[i]); 
-				}
-				LOG("\n");			
+				hexDump(NULL, data, dataLength, 16);		
 			} else {
 				theData = *(Payload*)data; //assume radio.DATA actually contains our struct and not something else
 
@@ -301,6 +299,9 @@ static int run_loop(struct mosquitto *m) {
 				);
 				if (sensorNode.nodeID == theNodeID)
 					sendMQTT = 1;
+				else {
+					hexDump(NULL, data, dataLength, 16);
+				}
 			}  
 		} //end if radio.receive
 
@@ -354,6 +355,64 @@ static long millis(void) {
 
     return ((tv.tv_sec) * 1000 + tv.tv_usec/1000.0) + 0.5;
 	}
+
+	
+/* Binary Dump utility function */
+#define MAX_BLOC 16
+const unsigned char hex_asc[] = "0123456789abcdef";
+static void hexDump (char *desc, void *addr, int len, int bloc) {
+    int i, lx, la, l, line;
+	long offset = 0;
+    unsigned char hexbuf[MAX_BLOC * 3 + 1];	// Hex part of the data (2 char + 1 space)
+	unsigned char ascbuf[MAX_BLOC + 1];	// ASCII part of the data
+    unsigned char *pc = (unsigned char*)addr;
+	unsigned char ch;
+	
+	// nothing to output
+	if (!len)
+		return;
+
+	// Limit the line length to MAX_BLOC
+	if (bloc > MAX_BLOC) 
+		bloc = MAX_BLOC;
+		
+	// Output description if given.
+    if (desc != NULL)
+		LOG("%s:\n", desc);
+	
+	line = 0;
+	do
+		{
+		l = len - (line * bloc);
+		if (l > bloc)
+			l = bloc;
+	
+		for (i=0, lx = 0, la = 0; i < l; i++) {
+			ch = pc[i];
+			hexbuf[lx++] = hex_asc[((ch) & 0xF0) >> 4];
+			hexbuf[lx++] = hex_asc[((ch) & 0xF)];
+			hexbuf[lx++] = ' ';
+		
+			ascbuf[la++]  = (ch > 0x20 && ch < 0x7F) ? ch : '.';
+			}
+	
+		for (; i < bloc; i++) {
+			hexbuf[lx++] = ' ';
+			hexbuf[lx++] = ' ';
+			hexbuf[lx++] = ' ';
+		}	
+		// nul terminate both buffer
+		hexbuf[lx++] = 0;
+		ascbuf[la++] = 0;
+	
+		// output buffers
+		LOG("%04x %s %s\n", line * bloc, hexbuf, ascbuf);
+		
+		line++;
+		pc += bloc;
+		}
+	while (line * bloc < len);
+}
 
 static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int var, int val) {
 	char buff_topic[6];
@@ -441,14 +500,13 @@ const struct mosquitto_message *msg) {
 				data.var3_float
 			);
 
-			LOG("Message sent to node %d ", data.nodeID);
 			theStats.messageSent++;
 			if (rfm69->sendWithRetry(data.nodeID,(const void*)(&data),sizeof(data))) {
-				LOG("ACK\n");
+				LOG("Message sent to node %d ACK", data.nodeID);
 				theStats.ackReceived++;
 				}
 			else {
-				LOG("NAK\n");
+				LOG("Message sent to node %d NAK", data.nodeID);
 				theStats.ackMissed++;
 			}
 		}
