@@ -478,16 +478,16 @@ const struct mosquitto_message *msg) {
 	Payload data;
 	uint8_t network;
 
-	sscanf(msg->topic, "RFM/%d/%d", &network, &data.nodeID);
+	sscanf(msg->topic, "RFM/%d/%d/%d", &network, &data.nodeID, &data.sensorID);
 	if (strncmp(msg->topic, MQTT_ROOT, strlen(MQTT_ROOT)) == 0 && network == theConfig.networkId) {
 		
 		// extract the target network and the target node from the topic
-		sscanf(msg->topic, "RFM/%d/%d", &network, &data.nodeID);
+		sscanf(msg->topic, "RFM/%d/%d/%d", &network, &data.nodeID, &data.sensorID);
 		
 		if (network == theConfig.networkId) {
 			// only process the messages to our network
 		
-			sscanf((const char *)msg->payload, "%03d,%ld,%f,%f", &data.sensorID, &data.var1_usl, &data.var2_float, &data.var3_float);
+			sscanf((const char *)msg->payload, "%ld,%f,%f", &data.var1_usl, &data.var2_float, &data.var3_float);
 			
 			LOG("Received message for Node ID = %d Device ID = %d Time = %d  var2 = %f var3 = %f\n",
 				data.nodeID,
