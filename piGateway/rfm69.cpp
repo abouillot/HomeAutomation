@@ -38,7 +38,6 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <unistd.h>	//usleep
 #define MICROSLEEP_LENGTH 15
 
 #else
@@ -352,7 +351,7 @@ void RFM69::sendACK(const void* buffer, uint8_t bufferSize) {
   int16_t _RSSI = RSSI; // save payload received RSSI value
   writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFB) | RF_PACKET2_RXRESTART); // avoid RX deadlocks
   uint32_t now = millis();
-  while (!canSend() && millis() - now < RF69_CSMA_LIMIT_MS) {    usleep(MICROSLEEP_LENGTH); /* printf(".");*/ receiveDone();}
+  while (!canSend() && millis() - now < RF69_CSMA_LIMIT_MS) {    delayMicroseconds(MICROSLEEP_LENGTH); /* printf(".");*/ receiveDone();}
   sendFrame(sender, buffer, bufferSize, false, true);
   RSSI = _RSSI; // restore payload RSSI
 }
@@ -430,7 +429,7 @@ void RFM69::interruptHandler() {
     thedata[1] = 0; // PAYLOADLEN
     thedata[2] = 0; //  TargetID
     wiringPiSPIDataRW(SPI_DEVICE, thedata, 3);
-    usleep(MICROSLEEP_LENGTH);
+    delayMicroseconds(MICROSLEEP_LENGTH);
 
     PAYLOADLEN = thedata[1];
     PAYLOADLEN = PAYLOADLEN > 66 ? 66 : PAYLOADLEN; // precaution
@@ -560,7 +559,7 @@ void RFM69::encrypt(const char* key) {
     }
 
     wiringPiSPIDataRW(SPI_DEVICE, thedata, 17);
-    usleep(MICROSLEEP_LENGTH);
+    delayMicroseconds(MICROSLEEP_LENGTH);
   }
 
   writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFE) | (key ? 1 : 0));
@@ -600,7 +599,7 @@ uint8_t RFM69::readReg(uint8_t addr)
   thedata[1] = 0;
 
   wiringPiSPIDataRW(SPI_DEVICE, thedata, 2);
-  usleep(MICROSLEEP_LENGTH);
+  delayMicroseconds(MICROSLEEP_LENGTH);
 
 //printf("%x %x\n", addr, thedata[1]);
   return thedata[1];
@@ -622,7 +621,7 @@ void RFM69::writeReg(uint8_t addr, uint8_t value)
   thedata[1] = value;
 
   wiringPiSPIDataRW(SPI_DEVICE, thedata, 2);
-  usleep(MICROSLEEP_LENGTH);
+  delayMicroseconds(MICROSLEEP_LENGTH);
 #else
   select();
   SPI.transfer(addr | 0x80);
