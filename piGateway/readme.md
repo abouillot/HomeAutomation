@@ -101,3 +101,24 @@ To remove the service you can use the command
 ```
 sudo make uninstall
 ```
+
+
+### Send Receive Test
+Since I ran into the problem that I couldn't send/receive from my setup, I have added a SenderReceiver script:
+
+compile with
+```
+make SenderReceiver
+```
+
+Run with
+```
+SenderReceiver -s
+```
+will send the packets
+
+```
+SenderReceiver -r
+```
+
+Will receive the packets. 
