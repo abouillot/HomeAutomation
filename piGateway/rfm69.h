@@ -41,7 +41,7 @@
 #define RF69_IRQ_NUM          0
  
  //#define SPI_SPEED 1000000
-#define SPI_SPEED 2000000
+#define SPI_SPEED 500000
 #define SPI_DEVICE 0
 #else
 #include <Arduino.h>            //assumes Arduino IDE v1.0 or greater
