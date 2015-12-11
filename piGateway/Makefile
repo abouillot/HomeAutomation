@@ -12,12 +12,12 @@ uninstall:
 	rm /etc/init.d/Gatewayd
 	rm /usr/local/bin/Gatewayd
 
-Gatewayd : Gateway.c rfm69.cpp
+Gatewayd : Gateway.c rfm69.cpp rfm69.h rfm69registers.h
 	g++ Gateway.c rfm69.cpp -o Gatewayd -lwiringPi -lmosquitto -DRASPBERRY -DDAEMON
 
-Gateway : Gateway.c rfm69.cpp
+Gateway : Gateway.c rfm69.cpp rfm69.h rfm69registers.h
 	g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY
 
-SenderReceiver : SenderReceiver.c rfm69.cpp
+SenderReceiver : SenderReceiver.c rfm69.cpp rfm69.h rfm69registers.h
 	g++ SenderReceiver.c rfm69.cpp -o SenderReceiver -lwiringPi -DRASPBERRY
 
