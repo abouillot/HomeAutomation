@@ -113,9 +113,11 @@ bool RFM69::initialize(uint8_t freqBand, uint8_t nodeID, uint8_t networkID)
   pinMode(_slaveSelectPin, OUTPUT);
   SPI.begin();
 #endif
-
-  do writeReg(REG_SYNCVALUE1, 0xAA); while (readReg(REG_SYNCVALUE1) != 0xAA);
-  do writeReg(REG_SYNCVALUE1, 0x55); while (readReg(REG_SYNCVALUE1) != 0x55);
+  unsigned long start = millis();
+  uint8_t timeout = 50;
+  do writeReg(REG_SYNCVALUE1, 0xAA); while (readReg(REG_SYNCVALUE1) != 0xaa && millis()-start < timeout);
+  start = millis();
+  do writeReg(REG_SYNCVALUE1, 0x55); while (readReg(REG_SYNCVALUE1) != 0x55 && millis()-start < timeout);
 
   for (uint8_t i = 0; CONFIG[i][0] != 255; i++)
     writeReg(CONFIG[i][0], CONFIG[i][1]);
@@ -126,7 +128,10 @@ bool RFM69::initialize(uint8_t freqBand, uint8_t nodeID, uint8_t networkID)
 
   setHighPower(_isRFM69HW); // called regardless if it's a RFM69W or RFM69HW
   setMode(RF69_MODE_STANDBY);
-  while ((readReg(REG_IRQFLAGS1) & RF_IRQFLAGS1_MODEREADY) == 0x00); // wait for ModeReady
+  start = millis();
+  while (((readReg(REG_IRQFLAGS1) & RF_IRQFLAGS1_MODEREADY) == 0x00) && millis()-start < timeout); // wait for ModeReady
+  if (millis()-start >= timeout)
+    return false;
 #ifdef RASPBERRY
   // Attach the Interupt
   wiringPiSetup();
@@ -348,11 +353,12 @@ bool RFM69::ACKRequested() {
 
 // should be called immediately after reception in case sender wants ACK
 void RFM69::sendACK(const void* buffer, uint8_t bufferSize) {
+  ACK_REQUESTED = 0;   // TWS added to make sure we don't end up in a timing race and infinite loop sending Acks
   uint8_t sender = SENDERID;
   int16_t _RSSI = RSSI; // save payload received RSSI value
   writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFB) | RF_PACKET2_RXRESTART); // avoid RX deadlocks
   uint32_t now = millis();
-  while (!canSend() && millis() - now < RF69_CSMA_LIMIT_MS) {    usleep(MICROSLEEP_LENGTH); /* printf(".");*/ receiveDone();}
+  while (!canSend() && millis() - now < RF69_CSMA_LIMIT_MS) {    delayMicroseconds(MICROSLEEP_LENGTH); /* printf(".");*/ receiveDone();}
   sendFrame(sender, buffer, bufferSize, false, true);
   RSSI = _RSSI; // restore payload RSSI
 }
@@ -368,9 +374,9 @@ void RFM69::sendFrame(uint8_t toAddress, const void* buffer, uint8_t bufferSize,
   // control byte
   uint8_t CTLbyte = 0x00;
   if (sendACK)
-    CTLbyte = 0x80;
+    CTLbyte = RFM69_CTL_SENDACK;
   else if (requestACK)
-    CTLbyte = 0x40;
+    CTLbyte = RFM69_CTL_REQACK;
 
 #ifdef RASPBERRY
   unsigned char thedata[63];
@@ -430,7 +436,7 @@ void RFM69::interruptHandler() {
     thedata[1] = 0; // PAYLOADLEN
     thedata[2] = 0; //  TargetID
     wiringPiSPIDataRW(SPI_DEVICE, thedata, 3);
-    usleep(MICROSLEEP_LENGTH);
+    delayMicroseconds(MICROSLEEP_LENGTH);
 
     PAYLOADLEN = thedata[1];
     PAYLOADLEN = PAYLOADLEN > 66 ? 66 : PAYLOADLEN; // precaution
@@ -476,9 +482,10 @@ void RFM69::interruptHandler() {
     SENDERID = SPI.transfer(0);
     uint8_t CTLbyte = SPI.transfer(0);
 
-    ACK_RECEIVED = CTLbyte & 0x80; // extract ACK-received flag
-    ACK_REQUESTED = CTLbyte & 0x40; // extract ACK-requested flag
-
+    ACK_RECEIVED = CTLbyte & RFM69_CTL_SENDACK; // extract ACK-received flag
+    ACK_REQUESTED = CTLbyte & RFM69_CTL_REQACK; // extract ACK-requested flag
+    
+    interruptHook(CTLbyte);     // TWS: hook to derived class interrupt function
     for (uint8_t i = 0; i < DATALEN; i++)
     {
       DATA[i] = SPI.transfer(0);
@@ -560,7 +567,7 @@ void RFM69::encrypt(const char* key) {
     }
 
     wiringPiSPIDataRW(SPI_DEVICE, thedata, 17);
-    usleep(MICROSLEEP_LENGTH);
+    delayMicroseconds(MICROSLEEP_LENGTH);
   }
 
   writeReg(REG_PACKETCONFIG2, (readReg(REG_PACKETCONFIG2) & 0xFE) | (key ? 1 : 0));
@@ -600,7 +607,7 @@ uint8_t RFM69::readReg(uint8_t addr)
   thedata[1] = 0;
 
   wiringPiSPIDataRW(SPI_DEVICE, thedata, 2);
-  usleep(MICROSLEEP_LENGTH);
+  delayMicroseconds(MICROSLEEP_LENGTH);
 
 //printf("%x %x\n", addr, thedata[1]);
   return thedata[1];
@@ -622,7 +629,7 @@ void RFM69::writeReg(uint8_t addr, uint8_t value)
   thedata[1] = value;
 
   wiringPiSPIDataRW(SPI_DEVICE, thedata, 2);
-  usleep(MICROSLEEP_LENGTH);
+  delayMicroseconds(MICROSLEEP_LENGTH);
 #else
   select();
   SPI.transfer(addr | 0x80);
