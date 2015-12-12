@@ -36,7 +36,6 @@ cd wiringPi
 
 Install Mosquitto and the development libraries - based on http://mosquitto.org/2013/01/mosquitto-debian-repository
 
-:warning: The repository doesn't seem able to deliver the proper libmosquitto-dev package, so we will compile it at a later stage.
 ```
 wget http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key
 sudo apt-key add mosquitto-repo.gpg.key
