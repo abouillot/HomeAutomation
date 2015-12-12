@@ -43,25 +43,7 @@ sudo apt-key add mosquitto-repo.gpg.key
 cd /etc/apt/sources.list.d/
 sudo wget http://repo.mosquitto.org/debian/mosquitto-wheezy.list
 sudo apt-get update
-sudo apt-get install mosquitto mosquitto-clients
-```
-
-Then, prepare the libmosquitto-dev replacement. Assume we will work from our home directory
-```
-cd ~
-wget http://repo.mosquitto.org/debian/mosquitto-repo.gpg.key
-sudo apt-key add mosquitto-repo.gpg.key
-cd /etc/apt/sources.list.d/
-sudo wget http://repo.mosquitto.org/debian/mosquitto-wheezy.list~
-cd ~
-sudo apt-get update
-sudo apt-get install mosquitto mosquitto-clients
-sudo apt-get install libssl-dev libwrap0-dev libc-ares-dev uuid-dev xsltproc docbook-xsl
-wget http://mosquitto.org/files/source/mosquitto-1.3.5.tar.gz
-tar zxvf mosquitto-1.3.5.tar.gz
-cd mosquitto-1.3.5/lib/
-make all
-sudo make install
+sudo apt-get install mosquitto mosquitto-clients libmosquitto-dev libmosquittopp-dev
 ```
 
 Grab the gateway
