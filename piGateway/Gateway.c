@@ -11,9 +11,7 @@ It also subscripe to Mosquitto Topics starting with RFM/<network_number> followe
 The message is parsed and put bak to the same payload structure as the one received from teh nodes
 
 
-Modifications Needed:
-1)  Update encryption string "ENCRYPTKEY"
-2)  Adjust network id, node id, frequency and model of RFM
+Adjust network configuration to your setup in the file networkconfig.h
 */
 
 //general --------------------------------
@@ -53,6 +51,8 @@ Modifications Needed:
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
+
+#include "networkconfig.h"
 
 RFM69 *rfm69;
 
@@ -190,14 +190,14 @@ int main(int argc, char* argv[]) {
 	if (!connect(m)) { die("connect() failure\n"); }
 
 	//RFM69 ---------------------------
-	theConfig.networkId = 101;
-	theConfig.nodeId = 1;
-	theConfig.frequency = RF69_433MHZ;
-	theConfig.keyLength = 16;
-	memcpy(theConfig.key, "xxxxxxxxxxxxxxxx", 16);
-	theConfig.isRFM69HW = true;
-	theConfig.promiscuousMode = true;
-	theConfig.messageWatchdogDelay = 1800000; // 1800 seconds (30 minutes) between two messages 
+	theConfig.networkId = NWC_NETWORK_ID;
+	theConfig.nodeId = NWC_NODE_ID;
+	theConfig.frequency = NWC_FREQUENCY;
+	theConfig.keyLength = NWC_KEY_LENGTH;
+	memcpy(theConfig.key, NWC_KEY, NWC_KEY_LENGTH);
+	theConfig.isRFM69HW = NWC_RFM69H;
+	theConfig.promiscuousMode = NWC_PROMISCUOUS_MODE;
+	theConfig.messageWatchdogDelay = NWC_WATCHDOG_DELAY; // 1800 seconds (30 minutes) between two messages 
 
 	rfm69 = new RFM69();
 	rfm69->initialize(theConfig.frequency,theConfig.nodeId,theConfig.networkId);

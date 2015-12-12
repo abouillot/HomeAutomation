@@ -14,14 +14,7 @@ Define the RFM Frequency of the chip used, your network id (pick one) and the en
 #define LOG(...) do { printf(__VA_ARGS__); } while (0)
 
 /* CONFIGURATION, please adapt */
-// Frequency of your RFM69 chip
-#define RFM_FREQUENCY RF69_868MHZ
-// Network ID, should be the same in all nodes for this test
-#define NETWORK_ID 100
-// needs to be 16 byte long
-#define ENCRYPTION_KEY  "sampleEncryptKey"
-// set to true if you have a high power verison of the RFM69 (RFM69HW, RFM69CWH..)
-#define RFM69H  false
+#include "networkconfig.h"
 
 
 //RFM69  ----------------------------------
@@ -110,13 +103,14 @@ int main(int argc, char* argv[]) {
 
 
 	//RFM69 ---------------------------
-	theConfig.networkId = NETWORK_ID;
+	theConfig.networkId = NWC_NETWORK_ID;
 	theConfig.nodeId = NODE_ID;
-	theConfig.frequency = RFM_FREQUENCY;
-	theConfig.keyLength = 16;
-	memcpy(theConfig.key, ENCRYPTION_KEY, 16);
-	theConfig.isRFM69HW = RFM69H;
-	theConfig.promiscuousMode = true;
+	theConfig.frequency = NWC_FREQUENCY;
+	theConfig.keyLength = NWC_KEY_LENGTH;
+	memcpy(theConfig.key, NWC_KEY, NWC_KEY_LENGTH);
+	theConfig.isRFM69HW = NWC_RFM69H;
+	theConfig.promiscuousMode = NWC_PROMISCUOUS_MODE;
+
 	LOG("NETWORK %d NODE_ID %d FREQUENCY %d\n", theConfig.networkId, theConfig.nodeId, theConfig.frequency);
 	
 	rfm69 = new RFM69();
