@@ -2,21 +2,9 @@
 // Minimize power consumption to run on battery
 // copyright 2016 Alexandre Bouillot - FLTM @abouillot
 
-#if ARDUINO >= 100
-#include <Arduino.h> // Arduino 1.0
-#define WRITE_RESULT size_t
-#else
-#include <WProgram.h> // Arduino 0022
-#define WRITE_RESULT void
-#endif
-
 #include <avr/sleep.h>
 #include <avr/power.h>
-#include <avr/wdt.h>
 #include <util/atomic.h>
-#include <avr/pgmspace.h>
-
-#include <stdint.h>
 
 // RTC
 #include <Time.h>
@@ -59,6 +47,7 @@
 #define ONESECOND      (1000L)
 #define FIVESECONDS    (ONESECOND * 5)
 #define FIFTEENSECONDS (ONESECOND * 15)
+#define THIRTYSECONDS  (ONESECOND * 30)
 #define HALFMINUTE     (ONESECOND * 30)
 #define ONEMINUTE      (ONESECOND * 60)
 #define TWOMINUTES     (ONEMINUTE * 2)
@@ -188,11 +177,21 @@ void Sleepy::watchdogInterrupts (char mode) {
 
 /// @see http://www.nongnu.org/avr-libc/user-manual/group__avr__sleep.html
 void Sleepy::powerDown () {
-  set_sleep_mode(SLEEP_MODE_PWR_SAVE);   /* EDIT: could also use SLEEP_MODE_PWR_DOWN for lowest power consumption. */
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  /* 318 µA */
+
+  // disable ADC  // save ~200 µA
+  ADCSRA = 0;  
+
+  noInterrupts();
   sleep_enable();
 
-  /* Now enter sleep mode. */
-  sleep_mode();
+  // turn off brown-out enable in software    // save ~25 µA
+  MCUCR = bit (BODS) | bit (BODSE);  // turn on brown-out enable select
+  MCUCR = bit (BODS);        // this must be done within 4 clock cycles of above
+  interrupts ();             // guarantees next instruction executed
+
+  sleep_cpu ();              // sleep within 3 clock cycles of above
 
   /* The program will continue from here after the WDT timeout*/
   sleep_disable(); /* First thing to do is disable sleep. */
@@ -311,8 +310,8 @@ public Active {
 public:
   unsigned long Run();
 private:
-#define BATT_READ_DELAY  FIVEMINUTES
-#define BATTPIN A0     			// digital pin we're connected to
+  #define BATT_READ_DELAY  FIVEMINUTES
+  #define BATTPIN A0     			// digital pin we're connected to
   float volts;
 };
 
@@ -465,8 +464,6 @@ unsigned long DHT::Run() {
   }
   switch (State) {
   case Init:
-    pinMode(DHTPIN, INPUT_PULLUP);
-    pinMode(DHTPOWERPIN, OUTPUT);
     NextTime = millis() + TEMP_READ_DELAY;
     State = Standby;
     break;
@@ -475,6 +472,8 @@ unsigned long DHT::Run() {
     break;
   case PowerOn:
     DEBUGLN1("Power on DHT");
+    pinMode(DHTPIN, INPUT_PULLUP);
+    pinMode(DHTPOWERPIN, OUTPUT);
     digitalWrite(DHTPOWERPIN, 1);
     State = Stabilize;
     NextTime = millis() + TEMP_STABILIZE_DELAY;
@@ -486,6 +485,13 @@ unsigned long DHT::Run() {
     break;
   case Read:
     chk = DHT.read21(DHTPIN);
+
+    DEBUGLN1("Power off DHT");
+    pinMode(DHTPOWERPIN, INPUT);
+    digitalWrite(DHTPOWERPIN, 0);
+    pinMode(DHTPIN, INPUT);
+    digitalWrite(DHTPIN, 0);  //ensure no consumption on 
+ 
     State = PowerOff;
     switch (chk)
     {
@@ -523,7 +529,6 @@ unsigned long DHT::Run() {
     DEBUG1(t);
     DEBUG1("°C");
     DEBUGLN1();
-
     break;
   case Transmit:
     //send data
@@ -537,8 +542,6 @@ unsigned long DHT::Run() {
     State = PowerOff;
     break;
   case PowerOff:
-    DEBUGLN1("Power off DHT");
-    digitalWrite(DHTPOWERPIN, 0);
     State = Standby;
     NextTime = millis() + TEMP_READ_DELAY;
     break;
@@ -556,25 +559,6 @@ static const float R1 = 926;  // 926K for a 1M - from V+ to point of measure
 static const float R2 = 989;  // 989K for a 1M - from GND to point of measure
 static const float resistorFactor = 255 / (R2 / (R1 + R2));
 static const int batteryPin = A0; // where battery is connected
-volatile int adcReading;
-volatile boolean adcDone;
-boolean adcStarted;
-
-// ADC complete ISR
-ISR (ADC_vect)
-{
-  byte low, high;
-
-  // we have to read ADCL first; doing so locks both ADCL
-  // and ADCH until ADCH is read.  reading ADCL second would
-  // cause the results of each conversion to be discarded,
-  // as ADCL and ADCH would be locked when it completed.
-  low = ADCL;
-  high = ADCH;
-
-  adcReading = (high << 8) | low;
-  adcDone = true;  
-}  // end of ADC_vect
 
 unsigned long Battery::Run() {
   if (millis() < NextTime) {
@@ -592,25 +576,13 @@ unsigned long Battery::Run() {
     State = Stabilize;
     break;
   case Stabilize:
-    if (!adcStarted) {
-      adcStarted = true;
-      State = Read;
-      NextTime = millis() + ONESECOND;
-
-      ADCSRA |= bit (ADSC) | bit (ADIE);
-
-      set_sleep_mode (SLEEP_MODE_ADC);    // sleep during sample
-      sleep_mode (); 
-    }
+    State = Read;
+    analogRead(0);  // consume first read
     break;
   case Read:
-    if (adcDone) {
-      volts = ((adcReading / resistorFactor) * referenceVolts);
-      DEBUGLN1(volts);
-      State = Transmit;
-      adcStarted = false;
-      adcDone = false;
-    }
+    volts = ((analogRead(0) / resistorFactor) * referenceVolts);
+    DEBUGLN1(volts);
+    State = Transmit;
     break;
   case Transmit:
     //send data
@@ -640,11 +612,14 @@ void setup() {
   Serial.println(GATEWAYID);
   Serial.println();
 
+  // Set all pin as output and low to minimize consumption.
+  for (byte i = 0; i <= A7; i++) {
+    pinMode (i, INPUT);
+    digitalWrite (i, LOW);
+  }
+
   // disable the LED
   digitalWrite(LED, 0);
-
-  // ADC Converter
-  ADMUX = bit (REFS0) | (BATTPIN & 0x07);
 
   // configure RTC chip
   pinMode(RTC_INT, INPUT);
@@ -653,7 +628,7 @@ void setup() {
   pRTC->set(1387798395);
   pRTC->setTimeRTC(1388534400); // 2014-01-01 00:00:00
 
-    // configure Flash memory chip
+  // configure Flash memory chip
   // put flash memory to sleep
   // Anarduino: Flash SPI_CS = 5, ID = 0xEF30 (Winbond 4Mbit flash)
   //  SPIFlash flash(5, 0x0120); // flash(SPI_CS, MANUFACTURER_ID)
@@ -679,6 +654,7 @@ void setup() {
   theData.nodeID = NODEID;  //this node id should be the same for all devices in this node
   //  radio.promiscuous(true);
   radio.promiscuous(false);
+  radio.sleep();
 }
 
 void loop() {
@@ -694,5 +670,3 @@ void loop() {
     Sleepy::loseSomeTime(suspend);
   }
 }
-
-
