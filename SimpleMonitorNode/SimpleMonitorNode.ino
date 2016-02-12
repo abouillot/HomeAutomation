@@ -177,11 +177,9 @@ void Sleepy::watchdogInterrupts (char mode) {
 
 /// @see http://www.nongnu.org/avr-libc/user-manual/group__avr__sleep.html
 void Sleepy::powerDown () {
+  DEBUGFLUSH();
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
   /* 318 µA */
-
-  // disable ADC  // save ~200 µA
-  ADCSRA = 0;  
 
   noInterrupts();
   sleep_enable();
@@ -491,7 +489,7 @@ unsigned long DHT::Run() {
     digitalWrite(DHTPOWERPIN, 0);
     pinMode(DHTPIN, INPUT);
     digitalWrite(DHTPIN, 0);  //ensure no consumption on 
- 
+
     State = PowerOff;
     switch (chk)
     {
@@ -577,10 +575,12 @@ unsigned long Battery::Run() {
     break;
   case Stabilize:
     State = Read;
+    power_adc_enable(); 
     analogRead(0);  // consume first read
     break;
   case Read:
     volts = ((analogRead(0) / resistorFactor) * referenceVolts);
+    power_adc_disable(); 
     DEBUGLN1(volts);
     State = Transmit;
     break;
@@ -666,7 +666,6 @@ void loop() {
 
   long suspend = nextRun - millis();
   if (suspend > 0 ) {
-    DEBUGFLUSH();
     Sleepy::loseSomeTime(suspend);
   }
 }
