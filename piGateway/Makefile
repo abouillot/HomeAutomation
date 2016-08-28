@@ -1,3 +1,13 @@
+#
+# Makefile for piGateway
+#
+# Supported devices:
+# Arduino		use -DARDUINO
+# Raspberry Pi	use -DRASPBERRY
+# Odroid C1(+)	use -DODROIDC1
+#
+# make sure only your device is defined in the g++ lines.
+
 install : Gatewayd
 	cp Gatewayd /usr/local/bin
 	cp GatewaydService /etc/init.d/Gatewayd
@@ -13,11 +23,11 @@ uninstall:
 	rm /usr/local/bin/Gatewayd
 
 Gatewayd : Gateway.c rfm69.cpp rfm69.h rfm69registers.h networkconfig.h 
-	g++ Gateway.c rfm69.cpp -o Gatewayd -lwiringPi -lmosquitto -DRASPBERRY -DDAEMON
+	g++ Gateway.c rfm69.cpp -o Gatewayd -lwiringPi -lmosquitto -DODROIDC1 -DDAEMON
 
 Gateway : Gateway.c rfm69.cpp rfm69.h rfm69registers.h networkconfig.h 
-	g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DRASPBERRY
+	g++ Gateway.c rfm69.cpp -o Gateway -lwiringPi -lmosquitto -DODROIDC1 -DDEBUG
 
 SenderReceiver : SenderReceiver.c rfm69.cpp rfm69.h rfm69registers.h networkconfig.h 
-	g++ SenderReceiver.c rfm69.cpp -o SenderReceiver -lwiringPi -DRASPBERRY
+	g++ SenderReceiver.c rfm69.cpp -o SenderReceiver -lwiringPi -DODROIDC1
 

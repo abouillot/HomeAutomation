@@ -31,7 +31,8 @@
 // **********************************************************************************
 #include "rfm69.h"
 #include "rfm69registers.h"
-#ifdef RASPBERRY
+
+#ifdef RASPBERRY // If RASPBERRY is defined in the make file.
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 #include <stdio.h>
@@ -39,6 +40,16 @@
 #include <errno.h>
 
 #include <unistd.h>	//usleep
+#define MICROSLEEP_LENGTH 15
+
+#elif ODROIDC1 // If ODROIDC1 is defined in the make file.
+#include <wiringPi.h>
+#include <wiringPiSPI.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
+#include <unistd.h>     //usleep
 #define MICROSLEEP_LENGTH 15
 
 #else
@@ -102,8 +113,15 @@ bool RFM69::initialize(uint8_t freqBand, uint8_t nodeID, uint8_t networkID)
     {255, 0}
   };
 
-#ifdef RASPBERRY
-  // Initialize SPI device 0
+#if defined(RASPBERRY) || defined(ODROIDC1)
+  wiringPiSetup();
+  pinMode (RF69_RST_PIN, OUTPUT);
+  digitalWrite (RF69_RST_PIN, LOW); 
+  pinMode (RF69_CLK_PIN, INPUT);
+  pullUpDnControl (RF69_CLK_PIN, PUD_OFF);
+  pinMode (RF69_SPI_CS, OUTPUT);
+  digitalWrite (RF69_SPI_CS, LOW);
+// Initialize SPI device 0
   if(wiringPiSPISetup(SPI_DEVICE, SPI_SPEED) < 0) {
     fprintf(stderr, "Unable to open SPI device\n\r");
     exit(1);
@@ -132,7 +150,7 @@ bool RFM69::initialize(uint8_t freqBand, uint8_t nodeID, uint8_t networkID)
   while (((readReg(REG_IRQFLAGS1) & RF_IRQFLAGS1_MODEREADY) == 0x00) && millis()-start < timeout); // wait for ModeReady
   if (millis()-start >= timeout)
     return false;
-#ifdef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1) 
   // Attach the Interupt
   wiringPiSetup();
   wiringPiISR(6, INT_EDGE_RISING, RFM69::isr0);
@@ -378,7 +396,7 @@ void RFM69::sendFrame(uint8_t toAddress, const void* buffer, uint8_t bufferSize,
   else if (requestACK)
     CTLbyte = RFM69_CTL_REQACK;
 
-#ifdef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
   unsigned char thedata[63];
   uint8_t i;
   for(i = 0; i < 63; i++) thedata[i] = 0;
@@ -418,7 +436,7 @@ void RFM69::sendFrame(uint8_t toAddress, const void* buffer, uint8_t bufferSize,
 // internal function - interrupt gets called when a packet is received
 void RFM69::interruptHandler() {
 
-#ifdef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
   unsigned char thedata[67];
   char i;
   for(i = 0; i < 67; i++) thedata[i] = 0;
@@ -431,7 +449,7 @@ void RFM69::interruptHandler() {
   {
     //RSSI = readRSSI();
     setMode(RF69_MODE_STANDBY);
-#ifdef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
     thedata[0] = REG_FIFO & 0x7F;
     thedata[1] = 0; // PAYLOADLEN
     thedata[2] = 0; //  TargetID
@@ -457,7 +475,7 @@ void RFM69::interruptHandler() {
       //digitalWrite(4, 0);
       return;
     }
-#ifdef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
     DATALEN = PAYLOADLEN - 3;
     thedata[0] = REG_FIFO & 0x77;
     thedata[1] = 0; //SENDERID
@@ -531,7 +549,9 @@ void RFM69::receiveBegin() {
 bool RFM69::receiveDone() {
 //ATOMIC_BLOCK(ATOMIC_FORCEON)
 //{
-#ifndef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
+	// one or both defined, do nothing.
+#else
   noInterrupts(); // re-enabled in unselect() via setMode() or via receiveBegin()
 #endif
   if (_mode == RF69_MODE_RX && PAYLOADLEN > 0)
@@ -541,7 +561,9 @@ bool RFM69::receiveDone() {
   }
   else if (_mode == RF69_MODE_RX) // already in RX no payload yet
   {
-#ifndef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
+	// one or both defined, do nothing.
+#else	// neither defined
     interrupts(); // explicitly re-enable interrupts
 #endif
     return false;
@@ -555,7 +577,7 @@ bool RFM69::receiveDone() {
 // To disable encryption: radio.encrypt(null) or radio.encrypt(0)
 // KEY HAS TO BE 16 bytes !!!
 void RFM69::encrypt(const char* key) {
-#ifdef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
   unsigned char thedata[17];
   char i;
 
@@ -601,7 +623,7 @@ int16_t RFM69::readRSSI(bool forceTrigger) {
 
 uint8_t RFM69::readReg(uint8_t addr)
 {
-#ifdef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
   unsigned char thedata[2];
   thedata[0] = addr & 0x7F;
   thedata[1] = 0;
@@ -622,7 +644,7 @@ uint8_t RFM69::readReg(uint8_t addr)
 
 void RFM69::writeReg(uint8_t addr, uint8_t value)
 {
-#if RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
 //printf("%x %x\n", addr, value);
   unsigned char thedata[2];
   thedata[0] = addr | 0x80;
@@ -641,7 +663,9 @@ void RFM69::writeReg(uint8_t addr, uint8_t value)
 // select the RFM69 transceiver (save SPI settings, set CS low)
 void RFM69::select() {
 //  printf(" diable Int ");
-#ifndef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
+	// one or both defined, do nothing.
+#else	// if neither defined
   noInterrupts();
   // save current SPI settings
   _SPCR = SPCR;
@@ -656,7 +680,9 @@ void RFM69::select() {
 
 // unselect the RFM69 transceiver (set CS high, restore SPI settings)
 void RFM69::unselect() {
-#ifndef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
+	// one or both defined, do nothing.
+#else	// neither defined
   digitalWrite(_slaveSelectPin, HIGH);
   // restore SPI settings to what they were before talking to RFM69
   SPCR = _SPCR;
@@ -699,7 +725,7 @@ void RFM69::setCS(uint8_t newSPISlaveSelect) {
 // Serial.print all the RFM69 register values
 void RFM69::readAllRegs()
 {
-#ifdef RASPBERRY
+#if defined(RASPBERRY) || defined(ODROIDC1)
   char thedata[2];
   int i;
   thedata[1] = 0;
