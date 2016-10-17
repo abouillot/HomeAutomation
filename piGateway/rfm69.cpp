@@ -550,8 +550,7 @@ bool RFM69::receiveDone() {
 //ATOMIC_BLOCK(ATOMIC_FORCEON)
 //{
 #if defined(RASPBERRY) || defined(ODROIDC1)
-	// one or both defined, do nothing.
-#else
+	// one or both define
   noInterrupts(); // re-enabled in unselect() via setMode() or via receiveBegin()
 #endif
   if (_mode == RF69_MODE_RX && PAYLOADLEN > 0)
