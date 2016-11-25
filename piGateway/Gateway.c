@@ -3,12 +3,15 @@ RFM69 Gateway RFM69 pushing the data to the mosquitto server
 by Alexandre Bouillot
 
 License:  CC-BY-SA, https://creativecommons.org/licenses/by-sa/2.0/
-Date:  2015-06-12
+Date:  2016/11/24
 File: Gateway.c
 
 This sketch receives RFM wireless data and forwards it to Mosquitto relay
-It also subscripe to Mosquitto Topics starting with RFM/<network_number> followed  by /<node_id>
-The message is parsed and put bak to the same payload structure as the one received from teh nodes
+
+The messages are published with the format RFM/<network number>/<node_id>/up/<sensor_id><var>
+It also subscripe to Mosquitto Topics starting with RFM/<network_number>/<node_id>/down/<sensor_id>
+
+The message is parsed and put back to the same payload structure as the one received from the nodes
 
 
 Adjust network configuration to your setup in the file networkconfig.h
@@ -205,7 +208,7 @@ int main(int argc, char* argv[]) {
 
 	// Mosquitto subscription ---------
 	char subsciptionMask[128];
-	sprintf(subsciptionMask, "%s/%03d/#", MQTT_ROOT, theConfig.networkId);
+	sprintf(subsciptionMask, "%s/%03d/#/down", MQTT_ROOT, theConfig.networkId);
 	LOG("Subscribe to Mosquitto topic: %s\n", subsciptionMask);
 	mosquitto_subscribe(m, NULL, subsciptionMask, 0);
 	
@@ -412,30 +415,30 @@ static void hexDump (char *desc, void *addr, int len, int bloc) {
 }
 
 static void MQTTSendInt(struct mosquitto * _client, int node, int sensor, int var, int val) {
-	char buff_topic[6];
-	char buff_message[7];
+	char buff_topic[128];
+	char buff_message[128];
 
-	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+	sprintf(buff_topic, "%s/%03d/%02d/up/%01d%01d", MQTT_ROOT, theConfig.networkId, node, sensor, var);
 	sprintf(buff_message, "%04d%", val);
 //	LOG("%s %s", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
 }
 
 static void MQTTSendULong(struct mosquitto* _client, int node, int sensor, int var, unsigned long val) {
-	char buff_topic[6];
-	char buff_message[12];
+	char buff_topic[128];
+	char buff_message[128];
 
-	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+	sprintf(buff_topic, "%s/%03d/%02d/up/%01d%01d", MQTT_ROOT, theConfig.networkId, node, sensor, var);
 	sprintf(buff_message, "%u", val);
 //	LOG("%s %s", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, &buff_topic[0], strlen(buff_message), buff_message, 0, false);
 	}
 
 static void MQTTSendFloat(struct mosquitto* _client, int node, int sensor, int var, float val) {
-	char buff_topic[6];
-	char buff_message[12];
+	char buff_topic[128];
+	char buff_message[128];
 
-	sprintf(buff_topic, "%02d%01d%01d", node, sensor, var);
+	sprintf(buff_topic, "%s/%03d/%02d/up/%01d%01d", MQTT_ROOT, theConfig.networkId, node, sensor, var);
 	snprintf(buff_message, 12, "%f", val);
 //	LOG("%s %s", buff_topic, buff_message);
 	mosquitto_publish(_client, 0, buff_topic, strlen(buff_message), buff_message, 0, false);
