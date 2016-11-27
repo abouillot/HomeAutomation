@@ -42,6 +42,18 @@
  
 #define SPI_SPEED 500000
 #define SPI_DEVICE 0
+#elif ODROIDC1			// If ODROIDC1 is defined in the Makefile instead of RASPBERRY
+#include <stdint.h>
+
+#define RF69_MAX_DATA_LEN     61 // to take advantage of the built in AES/CRC we want to limit the frame size to the internal FIFO size (66 bytes - 3 bytes overhead - 2 bytes crc)
+
+#define RF69_SPI_CS           10 // SS is the SPI slave select pin, for instance D10 on atmega328, use the WiringPi numbering.
+#define RF69_IRQ_PIN          6	 // The interrupt pin on the OdroidC1, use WirintPi numbering.
+#define RF69_IRQ_NUM          0
+#define RF69_RST_PIN          5  // The reset pin should be pulled down by default, pull high for resetting 
+#define RF69_CLK_PIN          14 // The SPI CLK pin. Used for setting the pulldown and output mode.
+#define SPI_SPEED 500000
+#define SPI_DEVICE 0
 #else
 #include <Arduino.h>            //assumes Arduino IDE v1.0 or greater
 
