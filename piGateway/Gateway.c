@@ -208,7 +208,7 @@ int main(int argc, char* argv[]) {
 
 	// Mosquitto subscription ---------
 	char subsciptionMask[128];
-	sprintf(subsciptionMask, "%s/%03d/#/down", MQTT_ROOT, theConfig.networkId);
+	sprintf(subsciptionMask, "%s/%03d/+/down/+", MQTT_ROOT, theConfig.networkId);
 	LOG("Subscribe to Mosquitto topic: %s\n", subsciptionMask);
 	mosquitto_subscribe(m, NULL, subsciptionMask, 0);
 	
@@ -481,11 +481,11 @@ const struct mosquitto_message *msg) {
 	Payload data;
 	uint8_t network;
 
-	sscanf(msg->topic, "RFM/%d/%d/%d", &network, &data.nodeID, &data.sensorID);
+	sscanf(msg->topic, "RFM/%d/%d/down/%d", &network, &data.nodeID, &data.sensorID);
 	if (strncmp(msg->topic, MQTT_ROOT, strlen(MQTT_ROOT)) == 0 && network == theConfig.networkId) {
 		
 		// extract the target network and the target node from the topic
-		sscanf(msg->topic, "RFM/%d/%d/%d", &network, &data.nodeID, &data.sensorID);
+		sscanf(msg->topic, "RFM/%d/%d/down/%d", &network, &data.nodeID, &data.sensorID);
 		
 		if (network == theConfig.networkId) {
 			// only process the messages to our network
