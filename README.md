@@ -1,57 +1,29 @@
-HomeAutomation
-==============
+RFM69HomeAutomation
+====================
+![](./Media/RFM69HomeAutomation.jpg)
 
-Home Automation repository
+## RFM69 Home Automation repository
 
-Work initialy started with the Uber Home Automation Project found on:
-http://www.instructables.com/id/Uber-Home-Automation
-and various other places on the internet
+The initial project is described by Eric Tsai at [Uber Home Automation](https://www.instructables.com/id/Uber-Home-Automation-w-Arduino-Pi/) and various other places on the internet. The code in this repository was adapted from work by [Eric Tsai](https://github.com/tsaitsai/OpenHab-RFM69) and [Alexandre Bouillot](https://github.com/abouillot/HomeAutomation), and is licensed under [Creative Commons CC-BY-SA](https://creativecommons.org/licenses/by-sa/2.0/).
 
-The format of the messages has been changed to be more Mosquitto friendly and conssitent in both directions
-RFM/<network number>/<node_id>/up/<sensor_id><var>	message from the node to the gateway
-RFM/<network_number>/<node_id>/down/<sensor_id>  message from the gateway to the node
+This system described here is intended to provide an inexpensive, reasonably secure, and easily extensible "DIY" home automation network based on the relatively affordable (in 2017, about $5 U.S. for single-unit quantities) RFM69 radio transceiver modules from Hope Microelectronics co., Ltd (info at http://www.hoperf.cn [Chinese only] or http://www.hoperf.com [worldwide, English only]), and which operate in the unlicensed [ISM radio frequency bands](https://en.wikipedia.org/wiki/ISM_band).
+
+It should be noted that, while these transceiver modules provide the ability to encrypt their signals and are capable of sending and recieving over significant distances, the small size of their data packets (66 bytes maximum) limit their overall bandwidth, making them unsuitable for high-banwidth tasks such as video surveillance; for high-bandwidth needs, other communications means such as WiFi or hard-wiring is preferable. RFM69 modules are, however, perfectly suited for most other home automation tasks such as controlling lights, reporting weather data, monitoring water levels, remotely operating door locks, etc.
+
+## RFM69 Nodes
+
+The combination of an RFM69 module and a microcontroller or computer is referred to as a "node." The RFM69 module is connected to a microcontroller or computer via the module's [SPI](https://en.wikipedia.org/wiki/Serial_Peripheral_Interface_Bus) interface, with the RFM69 module acting as a SPI "slave" device.
+
+![](./Media/node.jpg)
+
+An "end node" consists of an RFM69 module, a microcontroller or computer, and typically one or more sensor and/or "effector" devices, such as a relative-humidity sensor, a relay acting as a light switch, a door-lock mechanism, etc.
+
+A "gateway node" simply consists of an RFM69 module and a computer or sufficiently powerful microcontroller which translates commands-to and data-from an RFM69 end node into another communications protocol, such as [MQTT](https://en.wikipedia.org/wiki/MQTT), [AllJoyn](https://en.wikipedia.org/wiki/AllJoyn), [CoAP](https://en.wikipedia.org/wiki/Constrained_Application_Protocol), [DDS](https://en.wikipedia.org/wiki/Data_Distribution_Service), etc. The gateway node may also include sensor/effector devices, but this is strictly optional.
+
+## RFM69 Home Automation Network
 
 
-Two way communication can be performed thru MQTT messages.
 
-Basic setup for the sample sensorNode on network 101, node 14
-Connect RGB pin on pins 8, 6 and 4.
+![](./Media/RFM69HomeAutomationNetwork.jpg)
 
-in the openHab config items file, add: 
-```
-Switch LivingLedRedSwitch {mqtt=">[rfmPiMosquitto:RFM/101/14/down/7:command:OFF:0,0,0],>[rfmPiMosquitto:RFM/101/14/down/7:command:ON:0,1,0"}
-Switch LivingLedBlueSwitch {mqtt=">[rfmPiMosquitto:RFM/101/14/down/7:command:OFF:0,0,0],>[rfmPiMosquitto:RFM/101/14/down/7:command:ON:1,0,0"}
-Switch LivingLedGreenSwitch {mqtt=">[rfmPiMosquitto:RFM/101/14/down/7:command:OFF:0,0,0],>[rfmPiMosquitto:RFM/101/14/down/7:command:ON:0,0,1"}
-```
 
-in the appropriate frame section of the config sitemap file, add:
-```
-Frame label="Living temp" {
-                Frame label="RGB Led" {
-                        Switch item=LivingLedRedSwitch label="Toggle Red Switch"
-                        Switch item=LivingLedBlueSwitch label="Toggle Blue Switch"
-                        Switch item=LivingLedGreenSwitch label="Toggle Green Switch"
-                }
-```             
-
-Actionning the switch from openHab web page will trigger the appropriate message to the node. 
-
-For debug, look at the node serial output, where you should see the incoming messages and theirs decoding:
-```
-Received Device ID = 7
-    Time = 1
-    var2_float 1.00
-    var3_float 1.00
-```
-
-In the `/var/log/messages` the outgoint messages are logged:
-```
-Jan 14 15:52:20 rfmPi Gatewayd[14115]: -- got message @ RFM/101/14/down/7: (5, QoS 0, !r) '0,1,0'
-Jan 14 15:52:20 rfmPi Gatewayd[14115]: Received message for Node ID = 14 Device ID = 7 Time = 0  var2 = 1.000000 var3 = 0.000000
-Jan 14 15:52:20 rfmPi Gatewayd[14115]: Message sent to node 14 ACK
-```
-
-You can send manualy the message with the command:
-```
-mosquitto_pub -m 1,0,0 -t RFM/101/14/down/7
-```
