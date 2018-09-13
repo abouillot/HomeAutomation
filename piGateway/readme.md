@@ -63,6 +63,11 @@ sudo ./Gateway
 ```
 sudo is required as some of the WiringPi library need it
 
+The format of the MQTT messages is as follows:
+  - The "topic" for a message from the gateway to the broker is "RFM69HomeAutomation/OUT/<network number>/<node_id>/<device_id>/<subject>"
+  - The "topic" for a message from the broker to the gateway is "RFM69HomeAutomation/IN/<network_number>/<node_id>/<device_id>/<subject>"
+  where <subject> describes the content of the message (e.g. "TemperatureC", "SwitchState", "DimmerPercent", "RSSI", etc.)
+  - The message 
 
 ### Daemon
 The Gateway can also be run as a daemon
